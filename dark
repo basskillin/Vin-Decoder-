@@ -1,0 +1,58 @@
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    min-height: 100vh;
+    margin: 0;
+    background-color: #1a1a1a; /* Dark background */
+    color: #e0e0e0; /* Light text */
+  }
+
+  .container {
+    max-width: 600px;
+    width: 90%;
+    text-align: center;
+    background: #2a2a2a; /* Darker card background */
+    padding: 20px;
+    box-shadow: 0 0 15px rgba(255,255,255,0.05);
+    border-radius: 8px;
+  }
+
+  input, button {
+    padding: 10px;
+    margin: 10px 0;
+    width: 100%;
+    font-size: 16px;
+    border-radius: 5px;
+    background-color: #3a3a3a;
+    color: #f0f0f0;
+    border: 1px solid #555;
+  }
+
+  input::placeholder {
+    color: #999;
+  }
+
+  ul {
+    list-style-type: none;
+    padding: 0;
+    text-align: left;
+  }
+
+  li {
+    margin: 5px 0;
+    border-bottom: 1px solid #444;
+    padding-bottom: 5px;
+  }
+
+  h2, h1 {
+    color: #ffffff;
+  }
+
+  em {
+    color: #aaa;
+  }
+</style>
