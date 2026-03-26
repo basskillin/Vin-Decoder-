@@ -1,158 +1,311 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>VIN Decoder</title>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
+
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       font-family: Arial, sans-serif;
+      margin: 0;
+      background-color: #1a1a1a;
+      color: #e0e0e0;
+    }
+
+    .topbar {
+      width: 100%;
+      padding: 15px 20px;
+      background: #111;
+      border-bottom: 1px solid #333;
+    }
+
+    .topbar a {
+      color: #fff;
+      text-decoration: none;
+      font-weight: bold;
+      padding: 8px 14px;
+      border-radius: 6px;
+      background: #2f2f2f;
+      display: inline-block;
+    }
+
+    .topbar a:hover {
+      background: #444;
+    }
+
+    .page {
+      min-height: calc(100vh - 64px);
       display: flex;
       justify-content: center;
-      align-items: center;
-      flex-direction: column;
-      min-height: 100vh;
-      margin: 0;
-      background-color: #f7f7f7;
+      align-items: flex-start;
+      padding: 30px 15px;
     }
 
     .container {
       max-width: 600px;
-      width: 90%;
+      width: 100%;
       text-align: center;
-      background: #fff;
+      background: #2a2a2a;
       padding: 20px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      box-shadow: 0 0 15px rgba(255, 255, 255, 0.05);
       border-radius: 8px;
     }
 
-    input, button {
-      padding: 10px;
+    h1, h2 {
+      color: #ffffff;
+      margin-top: 0;
+    }
+
+    input,
+    button {
+      padding: 12px;
       margin: 10px 0;
       width: 100%;
       font-size: 16px;
       border-radius: 5px;
-      border: 1px solid #ccc;
+      background-color: #3a3a3a;
+      color: #f0f0f0;
+      border: 1px solid #555;
+    }
+
+    input::placeholder {
+      color: #999;
+    }
+
+    button {
+      cursor: pointer;
+      font-weight: bold;
+      background: #4a4a4a;
+      transition: background 0.2s ease;
+    }
+
+    button:hover {
+      background: #5a5a5a;
+    }
+
+    .note {
+      color: #aaa;
+      margin-top: 5px;
+      margin-bottom: 20px;
     }
 
     ul {
       list-style-type: none;
       padding: 0;
       text-align: left;
+      margin: 0;
     }
 
     li {
-      margin: 5px 0;
-      border-bottom: 1px solid #ddd;
-      padding-bottom: 5px;
+      margin: 6px 0;
+      border-bottom: 1px solid #444;
+      padding-bottom: 6px;
+      word-break: break-word;
     }
 
-    h2 {
-      margin-top: 20px;
+    #summary {
+      margin-bottom: 20px;
+    }
+
+    .loading {
+      color: #ffd369;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        padding: 16px;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+
+      input,
+      button {
+        font-size: 15px;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>🔍 VIN Decoder </h1>
-    <input type="text" id="vinInput" placeholder="Enter VIN here..." />
-    <button onclick="decodeVIN()">Decode</button>
 
-    <input type="file" accept="image/*" onchange="extractVINFromImage(this)" />
-    <p><em>📸 Upload a photo of the VIN to auto-fill</em></p>
+  <div class="topbar">
+    <a href="https://adauto.repair">Home</a>
+  </div>
 
-    <div id="summary"></div>
-    <h2>📋 Full VIN Details</h2>
-    <ul id="results"></ul>
+  <div class="page">
+    <div class="container">
+      <h1>🔍 VIN Decoder</h1>
+
+      <input
+        type="text"
+        id="vinInput"
+        placeholder="Enter VIN here..."
+        maxlength="17"
+      />
+      <button onclick="decodeVIN()">Decode</button>
+
+      <input type="file" accept="image/*" onchange="extractVINFromImage(this)" />
+      <p class="note">📸 Upload a photo of the VIN to auto-fill</p>
+
+      <div id="status"></div>
+      <div id="summary"></div>
+
+      <h2>📋 Full VIN Details</h2>
+      <ul id="results"></ul>
+    </div>
   </div>
 
   <script>
     function isValid(val) {
       if (!val) return false;
-      const cleaned = val.trim().toLowerCase();
-      return cleaned !== 'n/a' && cleaned !== 'not applicable' && cleaned !== 'null' && cleaned !== '';
+      const cleaned = String(val).trim().toLowerCase();
+      return cleaned !== "n/a" &&
+             cleaned !== "not applicable" &&
+             cleaned !== "null" &&
+             cleaned !== "";
+    }
+
+    function cleanVIN(vin) {
+      return vin
+        .toUpperCase()
+        .replace(/[^A-HJ-NPR-Z0-9]/g, "")
+        .slice(0, 17);
     }
 
     async function decodeVIN() {
-      const vin = document.getElementById('vinInput').value.trim();
-      const summaryDiv = document.getElementById('summary');
-      const resultsDiv = document.getElementById('results');
-      summaryDiv.innerHTML = '';
-      resultsDiv.innerHTML = '';
+      const vinInput = document.getElementById("vinInput");
+      const vin = cleanVIN(vinInput.value);
+      const summaryDiv = document.getElementById("summary");
+      const resultsDiv = document.getElementById("results");
+      const statusDiv = document.getElementById("status");
 
-      if (!vin || vin.length < 5) {
-        resultsDiv.innerHTML = '<li>Please enter a valid VIN.</li>';
+      vinInput.value = vin;
+      summaryDiv.innerHTML = "";
+      resultsDiv.innerHTML = "";
+      statusDiv.innerHTML = "";
+
+      if (vin.length !== 17) {
+        resultsDiv.innerHTML = "<li>Please enter a valid 17-character VIN.</li>";
         return;
       }
 
       try {
-        const response = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/${vin}?format=json`);
-        const data = await response.json();
-        const info = data.Results[0];
+        statusDiv.innerHTML = '<p class="loading">Decoding VIN...</p>';
 
-        const summaryFields = ['Make', 'Model', 'ModelYear', 'BodyClass', 'EngineCylinders'];
-        let summaryHTML = '<h2>🚗 Summary</h2><ul>';
+        const response = await fetch(
+          `https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/${vin}?format=json`
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        const info = data?.Results?.[0];
+
+        statusDiv.innerHTML = "";
+
+        if (!info) {
+          resultsDiv.innerHTML = "<li>No VIN data found.</li>";
+          return;
+        }
+
+        const summaryFields = [
+          "Make",
+          "Model",
+          "ModelYear",
+          "BodyClass",
+          "EngineCylinders"
+        ];
+
+        let summaryHTML = "<h2>🚗 Summary</h2><ul>";
+        let hasSummary = false;
+
         summaryFields.forEach(field => {
           if (isValid(info[field])) {
             summaryHTML += `<li><strong>${field}:</strong> ${info[field]}</li>`;
+            hasSummary = true;
           }
         });
-        summaryHTML += '</ul>';
-        summaryDiv.innerHTML = summaryHTML;
 
+        summaryHTML += "</ul>";
+        summaryDiv.innerHTML = hasSummary ? summaryHTML : "<p>No summary available.</p>";
+
+        let resultsHTML = "";
         for (const [key, value] of Object.entries(info)) {
           if (isValid(value)) {
-            resultsDiv.innerHTML += `<li><strong>${key}:</strong> ${value}</li>`;
+            resultsHTML += `<li><strong>${key}:</strong> ${value}</li>`;
           }
         }
 
+        resultsDiv.innerHTML = resultsHTML || "<li>No detailed VIN data available.</li>";
+
       } catch (error) {
-        resultsDiv.innerHTML = `<li>Error fetching data: ${error}</li>`;
+        statusDiv.innerHTML = "";
+        resultsDiv.innerHTML = `<li>Error fetching data: ${error.message}</li>`;
       }
     }
 
-          async function extractVINFromImage(input) {
-  if (!input.files[0]) return;
-  const { createWorker } = Tesseract;
-  const worker = await createWorker();
+    async function extractVINFromImage(input) {
+      const file = input.files[0];
+      if (!file) return;
 
-  await worker.load();
-  await worker.loadLanguage('eng');
-  await worker.initialize('eng');
+      const vinInput = document.getElementById("vinInput");
+      const statusDiv = document.getElementById("status");
+      const resultsDiv = document.getElementById("results");
+      const summaryDiv = document.getElementById("summary");
 
-  const {
-    data: { text }
-  } = await worker.recognize(input.files[0]);
+      resultsDiv.innerHTML = "";
+      summaryDiv.innerHTML = "";
+      statusDiv.innerHTML = '<p class="loading">Reading image...</p>';
 
-  await worker.terminate();
+      try {
+        const { data: { text } } = await Tesseract.recognize(file, "eng");
 
-  console.log("OCR Output:\n", text); // optional debug
+        console.log("OCR Output:\n", text);
 
-  // Look for a line that actually contains 'VIN' followed by valid characters
-  const vinLineMatch = text.match(/VIN[:\s]*([A-HJ-NPR-Z0-9]{11,17})/i);
+        const vinLineMatch = text.match(/VIN[:\s\-]*([A-HJ-NPR-Z0-9]{11,17})/i);
 
-  if (vinLineMatch && vinLineMatch[1]) {
-    const vinClean = vinLineMatch[1].replace(/[^A-HJ-NPR-Z0-9]/gi, '').slice(0, 17);
-    document.getElementById('vinInput').value = vinClean;
-    alert(`VIN Detected: ${vinClean}`);
-    decodeVIN();
-    return;
-  }
+        if (vinLineMatch && vinLineMatch[1]) {
+          const vinClean = cleanVIN(vinLineMatch[1]);
+          if (vinClean.length === 17) {
+            vinInput.value = vinClean;
+            statusDiv.innerHTML = "";
+            alert(`VIN Detected: ${vinClean}`);
+            decodeVIN();
+            return;
+          }
+        }
 
-  // Fallback: Scan all words for a valid VIN pattern
-  const words = text.split(/\s+/);
-  for (let word of words) {
-    const candidate = word.trim().replace(/[^A-HJ-NPR-Z0-9]/gi, '');
-    if (candidate.length === 17) {
-      document.getElementById('vinInput').value = candidate;
-      alert(`VIN Detected: ${candidate}`);
-      decodeVIN();
-      return;
+        const words = text.split(/\s+/);
+        for (let word of words) {
+          const candidate = cleanVIN(word);
+          if (candidate.length === 17) {
+            vinInput.value = candidate;
+            statusDiv.innerHTML = "";
+            alert(`VIN Detected: ${candidate}`);
+            decodeVIN();
+            return;
+          }
+        }
+
+        statusDiv.innerHTML = "";
+        alert("VIN not detected. Try cropping the image closer or enhancing contrast.");
+
+      } catch (error) {
+        statusDiv.innerHTML = "";
+        resultsDiv.innerHTML = `<li>OCR error: ${error.message}</li>`;
+      }
     }
-  }
-
-  alert("VIN not detected. Try cropping the image closer or enhancing contrast.");
-}
   </script>
 </body>
 </html>
